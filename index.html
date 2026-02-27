@@ -781,7 +781,11 @@ function parseDate(str) {
   if (p.length !== 3) return null;
   return new Date(+p[2], +p[1]-1, +p[0]);
 }
-function isUpcoming(dateStr) {
+function isUpcoming(dateStr, timeStr) {
+  if (timeStr && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+    // Если есть время — сравниваем точно по Киеву
+    return parseTargetDate(dateStr, timeStr) > new Date();
+  }
   const d = parseDate(dateStr);
   if (!d) return false;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -801,7 +805,7 @@ function renderUpdatesGrid() {
   const grid = document.getElementById('updatesGrid');
   if (!allUpdates.length) { grid.innerHTML = '<div style="color:var(--text-muted)">Нет обновлений</div>'; return; }
   grid.innerHTML = allUpdates.map(u => {
-    const upcoming = isUpcoming(u.date);
+    const upcoming = isUpcoming(u.date, u.time);
     const changes = u.changes || [];
     const preview = changes.slice(0,4).map(c => `<li>${c.type === '-' ? '-' : '+'} ${c.text}</li>`).join('');
     if (upcoming) {
@@ -913,7 +917,7 @@ function openModal(id) {
   const u = allUpdates.find(x => x.id === id);
   if (!u) return;
 
-  const upcoming = isUpcoming(u.date);
+  const upcoming = isUpcoming(u.date, u.time);
   let screenshots = '';
   if (u.screenshots && u.screenshots.length) {
     screenshots = '<div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.5rem">' +
