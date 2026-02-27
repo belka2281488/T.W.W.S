@@ -520,60 +520,8 @@
     <h2 class="section-title">Changelog</h2>
     <div class="section-divider"></div>
     <p style="font-size:.95rem;color:var(--text-muted);margin-bottom:.5rem;">Нажми на карточку, чтобы прочитать полный список изменений.</p>
-    <div class="updates-grid">
-
-      <!-- v1.5.0 -->
-      <div class="update-card" onclick="openModal('v150')">
-        <div class="update-version">v1.5.0</div>
-        <div class="update-date">16.11.2025</div>
-        <ul class="update-preview">
-          <li>+ Сохранение инвентаря</li>
-          <li>+ Новые предметы: меч, мина, глайдер</li>
-          <li>+ Механика наковальни</li>
-          <li>+ Тонна новой музыки...</li>
-        </ul>
-      </div>
-
-      <!-- v1.6.0 -->
-      <div class="update-card" onclick="openModal('v160')">
-        <div class="update-version">v1.6.0</div>
-        <div class="update-date">28.12.2025</div>
-        <ul class="update-preview">
-          <li>+ Украшено лобби</li>
-          <li>+ Исправлены баги</li>
-          <li>+ Новогоднее оформление карт</li>
-          <li>+ Белка с бантиком 🐿</li>
-        </ul>
-      </div>
-
-      <!-- v1.6.1 -->
-      <div class="update-card" onclick="openModal('v161')">
-        <div class="update-version">v1.6.1</div>
-        <div class="update-date">28.02.2026</div>
-        <ul class="update-preview">
-          <li>+ Новая карта</li>
-          <li>+ Улучшен визуал и графика</li>
-          <li>+ Вернули старые карты</li>
-          <li>- Белка с бантиком убрана 😢</li>
-        </ul>
-      </div>
-
-      <!-- UPCOMING -->
-      <div class="update-card upcoming" onclick="openModal('upcoming')">
-        <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;">
-          <div class="upcoming-date">?</div>
-          <div>
-            <div class="update-version" style="color:var(--orange);">СКОРО</div>
-            <div class="update-date">Следующее обновление</div>
-          </div>
-        </div>
-        <ul class="update-preview">
-          <li>Обновлённый визуал карт</li>
-          <li>Новая механика получения денег</li>
-          <li>И кое-что ещё...</li>
-        </ul>
-      </div>
-
+    <div class="updates-grid" id="updatesGrid">
+      <div style="color:var(--text-muted);font-family:'Share Tech Mono',monospace;font-size:.8rem;letter-spacing:2px;">Загрузка...</div>
     </div>
   </div>
 </section>
@@ -735,83 +683,100 @@ function draw() {
 draw();
 
 // ────────────────────────────────────────────
-//  MODAL DATA
+//  DYNAMIC UPDATES FROM SUPABASE
 // ────────────────────────────────────────────
-const updates = {
-  v150: {
-    version: 'v1.5.0',
-    date: '16 ноября 2025',
-    changes: [
-      {tag:'add', text:'Сделано сохранение инвентаря'},
-      {tag:'add', text:'Улучшение пирога'},
-      {tag:'add', text:'Немного украшено лобби'},
-      {tag:'add', text:'Новый админский ивент'},
-      {tag:'add', text:'Таймер до следующего обновления'},
-      {tag:'add', text:'Исправлены мелкие баги'},
-      {tag:'rem', text:'Изменение цен'},
-      {tag:'add', text:'Новые предметы — меч, мина, глайдер'},
-      {tag:'add', text:'Новая механика наковальни'},
-      {tag:'add', text:'ТОННА новой музыки в бумбоксе'},
-    ]
-  },
-  v160: {
-    version: 'v1.6.0',
-    date: '28 декабря 2025',
-    changes: [
-      {tag:'add', text:'Украшено лобби'},
-      {tag:'add', text:'Исправлены мелкие и большие баги'},
-      {tag:'add', text:'Украшение карт под тематику Нового Года'},
-      {tag:'note', text:'🐿 Белка с бантиком появилась в игре'},
-    ]
-  },
-  v161: {
-    version: 'v1.6.1',
-    date: '28 февраля 2026',
-    changes: [
-      {tag:'rem', text:'Белка с бантиком убрана (покоится с миром)'},
-      {tag:'add', text:'Добавлена новая карта'},
-      {tag:'add', text:'Улучшен визуал карт и общая графика'},
-      {tag:'add', text:'Вернули старые карты (зима ещё не кончилась, так что ладно)'},
-    ]
-  },
-  upcoming: null
-};
+const SB_URL = 'https://vkaxlkvadihbkuuoidpj.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZrYXhsa3ZhZGloYmt1dW9pZHBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzIxNzY3NjQsImV4cCI6MjA4Nzc1Mjc2NH0.47v0LhzIWHkxikqkgKxB-TUbACOAiEbdwfSXAj0obzQ';
+let allUpdates = [];
+
+function parseDate(str) {
+  const p = str.split('.');
+  if (p.length !== 3) return null;
+  return new Date(+p[2], +p[1]-1, +p[0]);
+}
+function isUpcoming(dateStr) {
+  const d = parseDate(dateStr);
+  if (!d) return false;
+  const today = new Date(); today.setHours(0,0,0,0);
+  return d > today;
+}
+
+async function loadUpdates() {
+  const res = await fetch(SB_URL + '/rest/v1/updates?select=*&order=id.desc', {
+    headers: { 'apikey': SB_KEY, 'Authorization': 'Bearer ' + SB_KEY }
+  });
+  const data = res.ok ? await res.json() : [];
+  allUpdates = data || [];
+  renderUpdatesGrid();
+}
+
+function renderUpdatesGrid() {
+  const grid = document.getElementById('updatesGrid');
+  if (!allUpdates.length) { grid.innerHTML = '<div style="color:var(--text-muted)">Нет обновлений</div>'; return; }
+  grid.innerHTML = allUpdates.map(u => {
+    const upcoming = isUpcoming(u.date);
+    const changes = u.changes || [];
+    const preview = changes.slice(0,4).map(c => `<li>${c.type === '-' ? '-' : '+'} ${c.text}</li>`).join('');
+    if (upcoming) {
+      return `<div class="update-card upcoming" onclick="openModal(${u.id})">
+        <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;">
+          <div class="upcoming-date">?</div>
+          <div>
+            <div class="update-version" style="color:var(--orange);">СКОРО</div>
+            <div class="update-date">${u.date}</div>
+          </div>
+        </div>
+        <ul class="update-preview">${preview}</ul>
+      </div>`;
+    }
+    return `<div class="update-card" onclick="openModal(${u.id})">
+      <div class="update-version">${u.version}</div>
+      <div class="update-date">${u.date}</div>
+      <ul class="update-preview">${preview}</ul>
+    </div>`;
+  }).join('');
+}
 
 function buildChanges(changes) {
-  return changes.map(c => {
-    const tagMap = { add:'tag-add', rem:'tag-rem', note:'tag-note' };
-    const sym = { add:'[+]', rem:'[-]', note:'[~]' };
-    return `<li><span class="${tagMap[c.tag]}">${sym[c.tag]}</span> ${c.text}</li>`;
+  return (changes||[]).map(c => {
+    const tagMap = { '+':'tag-add', '-':'tag-rem', '~':'tag-note' };
+    const sym    = { '+':'[+]', '-':'[-]', '~':'[~]' };
+    const t = c.type || '+';
+    return `<li><span class="${tagMap[t]||'tag-note'}">${sym[t]||'[~]'}</span> ${c.text}</li>`;
   }).join('');
 }
 
 function openModal(id) {
   const overlay = document.getElementById('modalOverlay');
   const content = document.getElementById('modalContent');
+  const u = allUpdates.find(x => x.id === id);
+  if (!u) return;
 
-  if (id === 'upcoming') {
+  const upcoming = isUpcoming(u.date);
+  let screenshots = '';
+  if (u.screenshots && u.screenshots.length) {
+    screenshots = '<div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:1.5rem">' +
+      u.screenshots.map(s => `<img src="${s}" style="max-width:100%;max-height:200px;border:1px solid var(--border);object-fit:cover">`).join('') +
+      '</div>';
+  }
+
+  if (upcoming) {
     content.innerHTML = `
-      <div class="modal-version" style="color:var(--text-muted);">СКОРО</div>
-      <div class="modal-date">Дата пока не объявлена</div>
-      <p style="color:var(--text-muted);font-size:.9rem;margin-bottom:1.2rem;">Что известно на данный момент:</p>
-      <ul class="modal-upcoming-desc">
-        <li>☄️ Обновлён визуал карт</li>
-        <li>💰 Новая механика получения денег</li>
-        <li>✨ И кое-что ещё, о чём пока молчим...</li>
-      </ul>
-      <p style="color:var(--text-muted);font-size:.85rem;margin-top:1.5rem;font-style:italic;">Обновление не масштабное, но надеемся, что понравится 🙂</p>
-    `;
+      <div class="modal-version" style="color:var(--text-muted);">СКОРО — ${u.version}</div>
+      <div class="modal-date">${u.date}</div>
+      <ul class="modal-changes">${buildChanges(u.changes)}</ul>
+      ${screenshots}`;
   } else {
-    const u = updates[id];
     content.innerHTML = `
       <div class="modal-version">${u.version}</div>
       <div class="modal-date">${u.date}</div>
       <ul class="modal-changes">${buildChanges(u.changes)}</ul>
-    `;
+      ${screenshots}`;
   }
-
   overlay.classList.add('open');
 }
+
+loadUpdates();
 
 function closeModal() {
   document.getElementById('modalOverlay').classList.remove('open');
