@@ -357,7 +357,13 @@ function parseDate(str) {
   if (p.length !== 3) return null;
   return new Date(+p[2], +p[1]-1, +p[0]);
 }
-function isUpcoming(dateStr) {
+function isUpcoming(dateStr, timeStr) {
+  if (timeStr && /^\d{1,2}:\d{2}$/.test(timeStr)) {
+    const dp = dateStr.split('.');
+    const tp = timeStr.split(':');
+    const isoStr = dp[2]+'-'+dp[1].padStart(2,'0')+'-'+dp[0].padStart(2,'0')+'T'+String(tp[0]).padStart(2,'0')+':'+String(tp[1]).padStart(2,'0')+':00';
+    return new Date(isoStr) > new Date();
+  }
   const d = parseDate(dateStr);
   if (!d) return false;
   const today = new Date(); today.setHours(0,0,0,0);
@@ -388,7 +394,7 @@ function renderList() {
     return;
   }
   el.innerHTML = allUpdates.map(u => {
-    const upcoming = isUpcoming(u.date);
+    const upcoming = isUpcoming(u.date, u.time);
     const changes = u.changes || [];
     const preview = changes.slice(0,2).map(c => c.text).join(" · ") || "Нет описания";
     return `
@@ -490,7 +496,7 @@ async function saveUpdate() {
     time: time || null,
     changes,
     screenshots: screenshots.map(s => s.dataUrl),
-    upcoming: isUpcoming(date)
+    upcoming: isUpcoming(date, time)
   };
 
   let result;
