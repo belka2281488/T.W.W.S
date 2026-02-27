@@ -254,6 +254,11 @@ body { background:var(--bg); color:var(--text); font-family:"Rajdhani",sans-seri
           <input type="text" id="fDate" placeholder="01.03.2026">
           <div class="field-hint">Если дата в будущем — автоматически станет «Грядущим обновлением»</div>
         </div>
+        <div class="field">
+          <label>Время выхода (необязательно)</label>
+          <input type="text" id="fTime" placeholder="20:15">
+          <div class="field-hint">Только для грядущих — покажет таймер обратного отсчёта</div>
+        </div>
         <div class="field form-full">
           <label>Список изменений</label>
           <div class="changes-list" id="changesList"></div>
@@ -413,6 +418,7 @@ function showAddForm() {
   screenshots = [];
   document.getElementById("fVersion").value = "";
   document.getElementById("fDate").value = "";
+  document.getElementById("fTime").value = "";
   document.getElementById("changesList").innerHTML = "";
   renderScreenshots();
   addChangeRow(); addChangeRow(); addChangeRow();
@@ -428,6 +434,7 @@ function editUpdate(id) {
   screenshots = (u.screenshots || []).map((s,i) => ({dataUrl:s, name:"img"+i}));
   document.getElementById("fVersion").value = u.version || "";
   document.getElementById("fDate").value = u.date || "";
+  document.getElementById("fTime").value = u.time || "";
   document.getElementById("changesList").innerHTML = "";
   (u.changes || []).forEach(c => addChangeRow(c.type||"+", c.text||""));
   renderScreenshots();
@@ -476,9 +483,11 @@ async function saveUpdate() {
 
   msg.textContent = "Сохраняю..."; msg.style.color="var(--text-muted)";
 
+  const time = document.getElementById("fTime").value.trim();
   const payload = {
     version,
     date,
+    time: time || null,
     changes,
     screenshots: screenshots.map(s => s.dataUrl),
     upcoming: isUpcoming(date)
