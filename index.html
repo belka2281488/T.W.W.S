@@ -834,9 +834,23 @@ function renderUpdatesGrid() {
 }
 
 function parseTargetDate(dateStr, timeStr) {
+  // Парсим дату и время по Киеву (Europe/Kiev = UTC+2 зима, UTC+3 лето)
   const dp = dateStr.split('.');
   const tp = timeStr.split(':');
-  return new Date(+dp[2], +dp[1]-1, +dp[0], +tp[0], +tp[1], 0);
+  const year  = +dp[2], month = +dp[1]-1, day = +dp[0];
+  const hours = +tp[0], mins  = +tp[1];
+
+  // Создаём дату как будто она в UTC, потом поправим на смещение Киева
+  const utcDate = Date.UTC(year, month, day, hours, mins, 0);
+  const tmpDate = new Date(utcDate);
+
+  // Узнаём реальное смещение Киева в эту конкретную дату (учитывает летнее время)
+  const kyivStr = tmpDate.toLocaleString('en-US', {timeZone: 'Europe/Kiev', hour12: false,
+    year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  const kyivParsed = new Date(kyivStr);
+  const offsetMs = tmpDate - kyivParsed; // насколько UTC отличается от Киева
+
+  return new Date(utcDate + offsetMs);
 }
 
 const countdownTimers = {};
