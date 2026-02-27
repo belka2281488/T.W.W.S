@@ -461,12 +461,12 @@
   <p class="hero-sub">Мир рухнет. Выживи или погибни.</p>
   <div class="hero-stats">
     <div class="stat">
-      <div class="stat-val" id="onlineCounter">—</div>
-      <div class="stat-label">Онлайн</div>
+      <div class="stat-val" id="onlineCounter">0</div>
+      <div class="stat-label">Онлайн <span style="font-size:.6rem;color:var(--orange-dim);letter-spacing:1px;">[скоро]</span></div>
     </div>
     <div class="stat">
-      <div class="stat-val" id="visitCounter">—</div>
-      <div class="stat-label">Визитов</div>
+      <div class="stat-val" id="visitCounter">340</div>
+      <div class="stat-label">Визитов <span style="font-size:.6rem;color:var(--orange-dim);letter-spacing:1px;">[скоро]</span></div>
     </div>
     <div class="stat">
       <div class="stat-val">v1.6.1</div>
@@ -881,8 +881,13 @@ async function initStats() {
     return;
   }
 
-  // 1. Прибавить визит
-  await supaFetch('/rest/v1/rpc/increment_visits', 'POST', {});
+  // 1. Прибавить визит только если человек не был сегодня
+  const lastVisit = localStorage.getItem('twws_visited');
+  const today = new Date().toDateString();
+  if (lastVisit !== today) {
+    await supaFetch('/rest/v1/rpc/increment_visits', 'POST', {});
+    localStorage.setItem('twws_visited', today);
+  }
 
   // 2. Зарегистрировать сессию (онлайн)
   await supaFetch('/rest/v1/sessions', 'POST', {
