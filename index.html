@@ -406,10 +406,89 @@
   footer span { color: var(--orange); }
 
   /* ── ANIMATIONS ── */
+
+  /* ── COUNTDOWN ── */
+  .countdown-wrap {
+    margin-top: .75rem;
+    padding: .75rem 1rem;
+    background: rgba(255,107,0,0.07);
+    border: 1px solid rgba(255,107,0,0.2);
+  }
+  .countdown-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .6rem; letter-spacing: 3px;
+    color: var(--orange-dim); margin-bottom: .4rem;
+    text-transform: uppercase;
+  }
+  .countdown-digits {
+    display: flex; gap: .6rem; align-items: center;
+  }
+  .countdown-unit {
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .countdown-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.6rem; line-height: 1;
+    color: var(--orange);
+    text-shadow: 0 0 15px var(--orange-glow);
+  }
+  .countdown-sep {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.4rem; color: var(--orange-dim);
+    margin-bottom: .4rem;
+  }
+  .countdown-sublabel {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .5rem; letter-spacing: 2px; color: var(--text-muted);
+  }
+  .countdown-done {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .75rem; letter-spacing: 3px; color: var(--green);
+    animation: pulse 1s infinite;
+  }
+
+  /* ── RELEASE NOTIFICATION ── */
+  .release-banner {
+    display: none;
+    position: fixed; top: 70px; left: 50%; transform: translateX(-50%);
+    z-index: 500;
+    background: var(--card2);
+    border: 1px solid var(--orange);
+    box-shadow: 0 0 60px rgba(255,107,0,0.4);
+    padding: 1.5rem 2.5rem;
+    text-align: center;
+    min-width: 320px;
+    animation: bannerIn .5s ease;
+  }
+  .release-banner.show { display: block; }
+  .release-banner-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 1.8rem; letter-spacing: 4px; color: var(--orange);
+    text-shadow: 0 0 20px var(--orange-glow);
+    margin-bottom: .4rem;
+  }
+  .release-banner-sub {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .75rem; letter-spacing: 3px; color: var(--text-muted);
+    margin-bottom: 1rem;
+  }
+  .release-banner-close {
+    background: none; border: 1px solid var(--border);
+    color: var(--text-muted); cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: .7rem; letter-spacing: 2px; padding: .4rem .9rem;
+    transition: all .2s;
+  }
+  .release-banner-close:hover { border-color: var(--orange); color: var(--orange); }
+  @keyframes bannerIn {
+    from { opacity:0; transform:translateX(-50%) translateY(-20px); }
+    to   { opacity:1; transform:translateX(-50%) translateY(0); }
+  }
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(20px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+
   @keyframes pulse {
     0%,100% { opacity: .4; }
     50%      { opacity: 1; }
@@ -536,6 +615,14 @@
 <footer>
   <p>T.W.W.S — THE WORLD WILL SHATTER &nbsp;|&nbsp; <span>Made in Roblox</span> &nbsp;|&nbsp; Неофициальный сайт</p>
 </footer>
+
+
+<!-- RELEASE BANNER -->
+<div class="release-banner" id="releaseBanner">
+  <div class="release-banner-title">☄️ ОБНОВЛЕНИЕ ВЫШЛО!</div>
+  <div class="release-banner-sub" id="releaseBannerVer">ЗАГРУЗКА...</div>
+  <button class="release-banner-close" onclick="document.getElementById('releaseBanner').classList.remove('show')">✕ ЗАКРЫТЬ</button>
+</div>
 
 </div><!-- /page -->
 
@@ -718,15 +805,19 @@ function renderUpdatesGrid() {
     const changes = u.changes || [];
     const preview = changes.slice(0,4).map(c => `<li>${c.type === '-' ? '-' : '+'} ${c.text}</li>`).join('');
     if (upcoming) {
+      const countdownId = 'cd_' + u.id;
+      const hasTime = u.time && /^\d{1,2}:\d{2}$/.test(u.time);
+      const timeStr = hasTime ? ` в ${u.time}` : '';
       return `<div class="update-card upcoming" onclick="openModal(${u.id})">
         <div style="display:flex;align-items:center;gap:.8rem;margin-bottom:.8rem;">
           <div class="upcoming-date">?</div>
           <div>
-            <div class="update-version" style="color:var(--orange);">СКОРО</div>
-            <div class="update-date">${u.date}</div>
+            <div class="update-version" style="color:var(--orange);">СКОРО — ${u.version}</div>
+            <div class="update-date">${u.date}${timeStr}</div>
           </div>
         </div>
         <ul class="update-preview">${preview}</ul>
+        ${hasTime ? `<div class="countdown-wrap" id="${countdownId}"></div>` : ''}
       </div>`;
     }
     return `<div class="update-card" onclick="openModal(${u.id})">
@@ -735,6 +826,62 @@ function renderUpdatesGrid() {
       <ul class="update-preview">${preview}</ul>
     </div>`;
   }).join('');
+
+  // Start countdowns
+  allUpdates.filter(u => isUpcoming(u.date) && u.time).forEach(u => {
+    startCountdown(u);
+  });
+}
+
+function parseTargetDate(dateStr, timeStr) {
+  const dp = dateStr.split('.');
+  const tp = timeStr.split(':');
+  return new Date(+dp[2], +dp[1]-1, +dp[0], +tp[0], +tp[1], 0);
+}
+
+const countdownTimers = {};
+function startCountdown(u) {
+  const el = document.getElementById('cd_' + u.id);
+  if (!el) return;
+  const target = parseTargetDate(u.date, u.time);
+
+  if (countdownTimers[u.id]) clearInterval(countdownTimers[u.id]);
+
+  function tick() {
+    const now = new Date();
+    const diff = target - now;
+    if (diff <= 0) {
+      el.innerHTML = '<div class="countdown-done">☄️ ОБНОВЛЕНИЕ ВЫШЛО!</div>';
+      clearInterval(countdownTimers[u.id]);
+      showReleaseBanner(u.version);
+      return;
+    }
+    const days  = Math.floor(diff / 86400000);
+    const hours = Math.floor((diff % 86400000) / 3600000);
+    const mins  = Math.floor((diff % 3600000) / 60000);
+    const secs  = Math.floor((diff % 60000) / 1000);
+    const fmt = n => String(n).padStart(2,'0');
+    el.innerHTML = `
+      <div class="countdown-label">До выхода обновления</div>
+      <div class="countdown-digits">
+        ${days > 0 ? `<div class="countdown-unit"><div class="countdown-num">${fmt(days)}</div><div class="countdown-sublabel">дней</div></div><div class="countdown-sep">:</div>` : ''}
+        <div class="countdown-unit"><div class="countdown-num">${fmt(hours)}</div><div class="countdown-sublabel">часов</div></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit"><div class="countdown-num">${fmt(mins)}</div><div class="countdown-sublabel">минут</div></div>
+        <div class="countdown-sep">:</div>
+        <div class="countdown-unit"><div class="countdown-num">${fmt(secs)}</div><div class="countdown-sublabel">секунд</div></div>
+      </div>`;
+  }
+  tick();
+  countdownTimers[u.id] = setInterval(tick, 1000);
+}
+
+function showReleaseBanner(version) {
+  const banner = document.getElementById('releaseBanner');
+  document.getElementById('releaseBannerVer').textContent = version + ' ТЕПЕРЬ ДОСТУПНО';
+  banner.classList.add('show');
+  // Auto-hide after 10s
+  setTimeout(() => banner.classList.remove('show'), 10000);
 }
 
 function buildChanges(changes) {
