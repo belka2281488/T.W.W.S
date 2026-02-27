@@ -868,10 +868,15 @@ function startCountdown(u) {
   function tick() {
     const now = new Date();
     const diff = target - now;
+
+    // Уже прошло — показываем уведомление сразу при загрузке тоже
     if (diff <= 0) {
       el.innerHTML = '<div class="countdown-done">☄️ ОБНОВЛЕНИЕ ВЫШЛО!</div>';
       clearInterval(countdownTimers[u.id]);
-      showReleaseBanner(u.version);
+      // Показываем баннер только если прошло не больше 2 часов (свежее событие)
+      if (diff > -7200000) showReleaseBanner(u.version);
+      // Перерисовываем карточку без тега СКОРО после небольшой задержки
+      setTimeout(() => renderUpdatesGrid(), 2000);
       return;
     }
     const days  = Math.floor(diff / 86400000);
